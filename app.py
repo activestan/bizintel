@@ -188,11 +188,20 @@ def read_insight(insight_id):
 
 @app.route('/seed')
 def seed_db():
-    """One-time database seeding (visit this once after deployment)."""
+    """Seed (or re-seed) the database with fresh demo data."""
+    import os as _os
     try:
-        from models import Service
-        if Service.query.count() > 0:
-            return '<h3>Database already seeded.</h3><p><a href="/">Go to Dashboard</a></p>'
+        # Delete existing database to force fresh seed
+        db_path = _os.path.join(_os.path.abspath(_os.path.dirname(__file__)), 'analytics.db')
+        if _os.path.exists(db_path):
+            db.session.close()
+            _os.remove(db_path)
+            db.create_all()
+        elif db.engine.dialect.has_table(db.engine.connect(), 'services'):
+            pass  # Tables exist, will seed into them
+        else:
+            db.create_all()
+        
         from seed_data import seed_all
         seed_all()
         from analytics import compute_daily_metrics
@@ -200,30 +209,10 @@ def seed_db():
         for i in range(1, 61):
             d = date.today() - timedelta(days=i)
             compute_daily_metrics(d)
-        return '<h3>Database seeded successfully!</h3><p><a href="/">Go to Dashboard</a></p>'
+        return '<h3>Database seeded successfully with fresh realistic data!</h3><p><a href="/">Go to Dashboard</a></p>'
     except Exception as e:
         return f'<h3>Error: {str(e)}</h3>'
 
-
-@app.route('/reset')
-def reset_db():
-    """Delete old database and re-seed with fresh realistic data."""
-    import os as _os
-    try:
-        db_path = _os.path.join(_os.path.abspath(_os.path.dirname(__file__)), 'analytics.db')
-        if _os.path.exists(db_path):
-            _os.remove(db_path)
-        db.create_all()
-        from seed_data import seed_all
-        seed_all()
-        from analytics import compute_daily_metrics
-        from datetime import date, timedelta
-        for i in range(1, 61):
-            d = date.today() - timedelta(days=i)
-            compute_daily_metrics(d)
-        return '<h3>Database reset with fresh realistic data!</h3><p><a href="/">Go to Dashboard</a></p>'
-    except Exception as e:
-        return f'<h3>Reset error: {str(e)}</h3>'
 
 
 if __name__ == '__main__':
