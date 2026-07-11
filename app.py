@@ -207,9 +207,12 @@ def seed_db():
 
 @app.route('/reset')
 def reset_db():
-    """Reset and re-seed the database (use after code updates)."""
+    """Delete old database and re-seed with fresh realistic data."""
+    import os as _os
     try:
-        db.drop_all()
+        db_path = _os.path.join(_os.path.abspath(_os.path.dirname(__file__)), 'analytics.db')
+        if _os.path.exists(db_path):
+            _os.remove(db_path)
         db.create_all()
         from seed_data import seed_all
         seed_all()
@@ -218,7 +221,7 @@ def reset_db():
         for i in range(1, 61):
             d = date.today() - timedelta(days=i)
             compute_daily_metrics(d)
-        return '<h3>Database reset and re-seeded with fresh data!</h3><p><a href="/">Go to Dashboard</a></p>'
+        return '<h3>Database reset with fresh realistic data!</h3><p><a href="/">Go to Dashboard</a></p>'
     except Exception as e:
         return f'<h3>Reset error: {str(e)}</h3>'
 
