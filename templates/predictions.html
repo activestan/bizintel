@@ -3,50 +3,90 @@
 {% block content %}
 <h2 class="fw-bold mb-4"><i class="bi bi-cpu me-2"></i>Predictive Analytics</h2>
 {% if error %}<div class="alert alert-warning">{{ error }}</div>{% endif %}
+
 {% if trends and trends.trend != 'insufficient_data' %}
 <div class="row g-3 mb-4">
-    <div class="col-md-3"><div class="card card-stat p-3 text-center"><small class="text-muted">Trend</small><span class="badge fs-6 mt-1 {% if trends.trend == 'growth' %}bg-success{% elif trends.trend == 'decline' %}bg-danger{% else %}bg-secondary{% endif %}">{{ trends.trend|capitalize }}</span></div></div>
-    <div class="col-md-3"><div class="card card-stat p-3 text-center"><small class="text-muted">Avg Daily Revenue</small><div class="fw-bold fs-5">₦{{ '{:,.0f}'.format(trends.avg_daily_revenue) }}</div></div></div>
-    <div class="col-md-3"><div class="card card-stat p-3 text-center"><small class="text-muted">Best Day</small><div class="fw-bold fs-5">{{ trends.best_day }}</div></div></div>
-    <div class="col-md-3"><div class="card card-stat p-3 text-center"><small class="text-muted">Total Revenue</small><div class="fw-bold fs-5">₦{{ '{:,.0f}'.format(trends.total_period_revenue) }}</div></div></div>
+    <div class="col-md-3"><div class="card card-stat p-3 text-center">
+        <small class="text-muted">Revenue Direction</small>
+        <span class="badge fs-6 mt-1 {% if trends.trend == 'growth' %}bg-success{% elif trends.trend == 'decline' %}bg-danger{% else %}bg-secondary{% endif %}">
+            {% if trends.trend == 'growth' %}Growing{% elif trends.trend == 'decline' %}Slowing{% else %}Steady{% endif %}
+        </span>
+    </div></div>
+    <div class="col-md-3"><div class="card card-stat p-3 text-center">
+        <small class="text-muted">Average Daily Revenue</small>
+        <div class="fw-bold fs-5">₦{{ '{:,.0f}'.format(trends.avg_daily_revenue) }}</div>
+    </div></div>
+    <div class="col-md-3"><div class="card card-stat p-3 text-center">
+        <small class="text-muted">Busiest Day of Week</small>
+        <div class="fw-bold fs-5">{{ trends.best_day }}</div>
+        <small class="text-muted">₦{{ '{:,.0f}'.format(trends.best_day_avg_revenue) }} avg</small>
+    </div></div>
+    <div class="col-md-3"><div class="card card-stat p-3 text-center">
+        <small class="text-muted">Quietest Day of Week</small>
+        <div class="fw-bold fs-5">{{ trends.worst_day }}</div>
+        <small class="text-muted">₦{{ '{:,.0f}'.format(trends.worst_day_avg_revenue) }} avg</small>
+    </div></div>
 </div>
 {% endif %}
+
+<div class="card card-stat p-3 mb-4" style="background:#fffbeb;">
+    <h6 class="fw-bold mb-2"><i class="bi bi-info-circle me-1"></i>How These Forecasts Work</h6>
+    <p class="mb-1 small text-muted">
+        The system learns from your past 90 days of transactions to predict what the next 14 days will look like. 
+        <strong>Blue bars</strong> show how many customers to expect each day. The <strong>orange line</strong> shows expected revenue. 
+        Think of it like a weather forecast: tomorrow is fairly reliable, two weeks out is a rough guide. 
+        The more transaction history you build, the better these predictions become.
+    </p>
+</div>
+
 <div class="row g-3 mb-4">
     <div class="col-md-8">
         <div class="card card-stat p-3">
-            <h6 class="fw-bold mb-1">Demand & Revenue Forecast (Next 14 Days)</h6>
-            {% if demand and demand.model_accuracy %}<small class="text-muted">Model accuracy: {{ demand.model_accuracy }}% R²</small>{% endif %}
-            <div class="chart-container mt-2" style="height:300px;"><canvas id="forecastChart"></canvas></div>
+            <h6 class="fw-bold mb-1">14-Day Demand & Revenue Outlook</h6>
+            {% if demand and demand.model_accuracy %}
+            <small class="text-muted">Model fit to your data: <strong>{{ demand.model_accuracy }}%</strong> (grows as you record more transactions)</small>
+            {% endif %}
+            <div class="chart-container mt-2" style="height:320px;"><canvas id="forecastChart"></canvas></div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="card card-stat p-3">
-            <h6 class="fw-bold mb-3">Forecast Table</h6>
+            <h6 class="fw-bold mb-3">Day-by-Day Forecast</h6>
             {% if demand and demand.forecasts %}
-            <div style="max-height:300px;overflow-y:auto;">
+            <div style="max-height:320px;overflow-y:auto;">
                 <table class="table table-sm table-hover">
-                    <thead><tr><th>Date</th><th>Day</th><th>Est. Tx</th><th>Est. Rev</th></tr></thead>
+                    <thead><tr><th>Date</th><th>Day</th><th>Customers</th><th>Revenue</th></tr></thead>
                     <tbody>{% for f in demand.forecasts[:14] %}
-                    <tr><td>{{ f.date }}</td><td>{{ f.day_name[:3] }}</td><td>{{ f.predicted_transactions }}</td><td>₦{{ '{:,.0f}'.format(f.predicted_revenue) }}</td></tr>
+                    <tr>
+                        <td><small>{{ f.date }}</small></td>
+                        <td>{{ f.day_name[:3] }}</td>
+                        <td class="fw-bold">{{ f.predicted_transactions }}</td>
+                        <td>₦{{ '{:,.0f}'.format(f.predicted_revenue) }}</td>
+                    </tr>
                     {% endfor %}</tbody>
                 </table>
             </div>
-            {% else %}<p class="text-muted">No forecast data yet.</p>{% endif %}
+            {% else %}<p class="text-muted">Not enough data yet. Keep recording transactions daily.</p>{% endif %}
         </div>
     </div>
 </div>
+
 {% if resource_forecast and resource_forecast.forecasts %}
 <div class="row g-3">
     <div class="col-12">
         <div class="card card-stat p-3">
-            <h6 class="fw-bold mb-1">Resource Utilisation Forecast</h6>
-            {% if resource_forecast.model_accuracy %}<small class="text-muted">Accuracy: {{ resource_forecast.model_accuracy }}% R²</small>{% endif %}
-            <div class="chart-container mt-2" style="height:240px;"><canvas id="resourceChart"></canvas></div>
+            <h6 class="fw-bold mb-1">Workstation Usage Forecast</h6>
+            <small class="text-muted mb-2 d-block">
+                {% if resource_forecast.model_accuracy %}Model fit: <strong>{{ resource_forecast.model_accuracy }}%</strong>. {% endif %}
+                If the line goes above 80%, you may need more computers. Below 30% means unused capacity.
+            </small>
+            <div class="chart-container" style="height:240px;"><canvas id="resourceChart"></canvas></div>
         </div>
     </div>
 </div>
 {% endif %}
 {% endblock %}
+
 {% block scripts %}
 <script>
 {% if demand and demand.forecasts %}
@@ -54,19 +94,26 @@ new Chart(document.getElementById('forecastChart'), {
     type: 'bar', data: {
         labels: {{ demand.forecasts[:14]|map(attribute='date')|list|tojson }},
         datasets: [
-            { label: 'Predicted Transactions', data: {{ demand.forecasts[:14]|map(attribute='predicted_transactions')|list|tojson }}, backgroundColor: '#3b82f6', borderRadius: 6, order: 2 },
-            { label: 'Predicted Revenue (₦)', data: {{ demand.forecasts[:14]|map(attribute='predicted_revenue')|list|tojson }}, type: 'line', borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.08)', fill: false, tension: 0.3, pointRadius: 4, order: 1, yAxisID: 'y1' }
+            { label: 'Expected Customers', data: {{ demand.forecasts[:14]|map(attribute='predicted_transactions')|list|tojson }}, backgroundColor: '#3b82f6', borderRadius: 6, order: 2 },
+            { label: 'Expected Revenue (₦)', data: {{ demand.forecasts[:14]|map(attribute='predicted_revenue')|list|tojson }}, type: 'line', borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.08)', fill: false, tension: 0.3, pointRadius: 4, order: 1, yAxisID: 'y1' }
         ]
     },
     options: { responsive: true, maintainAspectRatio: false,
-        scales: { y: { beginAtZero: true }, y1: { position: 'right', ticks: { callback: function(v) { return '₦' + (v/1000).toFixed(0) + 'k'; } }, grid: { drawOnChartArea: false } } }
+        scales: { 
+            y: { title: { display: true, text: 'Number of Customers' }, beginAtZero: true },
+            y1: { position: 'right', title: { display: true, text: 'Revenue (₦)' }, ticks: { callback: function(v) { return '₦' + (v/1000).toFixed(0) + 'k'; } }, grid: { drawOnChartArea: false } } 
+        }
     }
 });
 {% endif %}
 {% if resource_forecast and resource_forecast.forecasts %}
 new Chart(document.getElementById('resourceChart'), {
-    type: 'line', data: { labels: {{ resource_forecast.forecasts[:14]|map(attribute='date')|list|tojson }}, datasets: [{ data: {{ resource_forecast.forecasts[:14]|map(attribute='predicted_utilization')|list|tojson }}, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.3, pointRadius: 3 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, ticks: { callback: function(v) { return v + '%'; } } } } }
+    type: 'line', data: {
+        labels: {{ resource_forecast.forecasts[:14]|map(attribute='date')|list|tojson }},
+        datasets: [{ label: 'Workstations in Use (%)', data: {{ resource_forecast.forecasts[:14]|map(attribute='predicted_utilization')|list|tojson }}, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.3, pointRadius: 3 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, 
+        scales: { y: { min: 0, max: 100, title: { display: true, text: 'Percentage of Workstations Busy' }, ticks: { callback: function(v) { return v + '%'; } } } } }
 });
 {% endif %}
 </script>

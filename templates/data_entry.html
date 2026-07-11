@@ -22,7 +22,7 @@
                     <div class="col-6"><label class="form-label small">Payment</label><select class="form-select form-select-sm" id="payment_method"><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="POS">POS</option></select></div>
                 </div>
                 <div class="mb-2"><label class="form-label small">Customer</label><select class="form-select form-select-sm" id="customer_id"><option value="">Walk-in</option>{% for c in customers %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
-                <div class="mb-2"><label class="form-label small">Staff</label><select class="form-select form-select-sm" id="staff_name"><option value="">Select...</option><option>Sarah</option><option>John</option><option>Hassan</option><option>Maryam</option><option>Peter</option></select></div>
+                <div class="mb-2"><label class="form-label small">Staff</label><select class="form-select form-select-sm" id="staff_name"><option value="">Select...</option><option>Uchenna</option><option>Chinaza</option><option>Fredrick</option><option>Ifechukwu</option><option>Chiziterem</option><option>Davies</option></select></div>
                 <div class="mb-3"><label class="form-label small">Total</label><input type="text" class="form-control form-control-sm" id="total_preview" readonly></div>
                 <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-check-lg me-1"></i>Record Transaction</button>
             </form>

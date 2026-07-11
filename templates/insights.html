@@ -2,10 +2,25 @@
 {% block title %}Insights – BizIntel{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div><h2 class="fw-bold mb-0"><i class="bi bi-lightbulb me-2"></i>Decision Support</h2><p class="text-muted mb-0">Operational recommendations</p></div>
-    <button onclick="generateInsights()" class="btn btn-primary"><i class="bi bi-arrow-repeat me-1"></i> Generate Insights</button>
+    <div><h2 class="fw-bold mb-0"><i class="bi bi-lightbulb me-2"></i>Decision Support</h2><p class="text-muted mb-0">Automated operational recommendations</p></div>
+    <button onclick="generateInsights()" class="btn btn-primary"><i class="bi bi-arrow-repeat me-1"></i> Generate New Insights</button>
 </div>
+
 {% if error %}<div class="alert alert-warning">{{ error }}</div>{% endif %}
+
+<!-- Insight Frequency Info -->
+<div class="card card-stat p-3 mb-3" style="background:#f8fafc;">
+    <h6 class="fw-bold mb-2"><i class="bi bi-info-circle me-1"></i>How Often Do Insights Update?</h6>
+    <div class="row g-2 small text-muted">
+        <div class="col-md-4"><strong>Peak Hour Staffing</strong><br>Updated daily. Checks the last 14 days of transactions.</div>
+        <div class="col-md-4"><strong>Underperforming Services</strong><br>Updated monthly. Compares transactions since the 1st of the month.</div>
+        <div class="col-md-4"><strong>Resource Balance</strong><br>Updated daily. Changes as workstations are used or freed.</div>
+        <div class="col-md-4"><strong>Customer Retention</strong><br>Updated daily. Recalculated when new customers register.</div>
+        <div class="col-md-4"><strong>Slow-Traffic Days</strong><br>Updated daily. Analyzes patterns across the last 30 days.</div>
+        <div class="col-md-4"><strong>High-Value Gaps</strong><br>Updated daily. Scans for underperforming high-price services.</div>
+    </div>
+</div>
+
 {% if insights %}
 <div class="row g-3">
     {% for i in insights %}
@@ -13,32 +28,52 @@
         <div class="card card-stat p-3 {% if not i.is_read %}border-start border-3 border-primary{% endif %}" id="insight-{{ i.id }}">
             <div class="d-flex justify-content-between align-items-start mb-2">
                 <span class="badge badge-{{ i.severity }}">{{ i.category|capitalize }}</span>
-                <div>{% if not i.is_read %}<button class="btn btn-sm btn-outline-primary me-1" onclick="markRead({{ i.id }})"><i class="bi bi-check-lg"></i></button>{% endif %}<small class="text-muted">{{ i.created_at.strftime('%b %d, %Y') }}</small></div>
+                <div>
+                    {% if not i.is_read %}
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="markRead({{ i.id }})"><i class="bi bi-check-lg"></i> Mark Read</button>
+                    {% endif %}
+                    <small class="text-muted d-block mt-1">{{ i.created_at.strftime('%b %d, %Y at %H:%M') }}</small>
+                </div>
             </div>
             <h6 class="fw-bold">{{ i.title }}</h6>
-            <p class="mb-1 text-muted small">{{ i.description }}</p>
-            {% if i.metric_value %}<small class="text-muted">{{ i.metric_name|replace('_', ' ')|title }}: {{ i.metric_value }}</small>{% endif %}
+            <p class="mb-1 small">{{ i.description }}</p>
+            {% if i.metric_value %}
+            <small class="text-muted fst-italic">{{ i.metric_name|replace('_', ' ')|title }}: {{ i.metric_value }}</small>
+            {% endif %}
         </div>
     </div>
     {% endfor %}
 </div>
 {% else %}
-<div class="text-center py-5"><i class="bi bi-lightbulb fs-1 text-muted"></i><p class="text-muted mt-3">No insights yet. Click Generate Insights to analyse your data.</p></div>
+<div class="text-center py-5">
+    <i class="bi bi-lightbulb fs-1 text-muted"></i>
+    <p class="text-muted mt-3">No insights yet. Click <strong>"Generate New Insights"</strong> above to scan your operational data.</p>
+</div>
 {% endif %}
 {% endblock %}
+
 {% block scripts %}
 <script>
 async function generateInsights() {
-    var btn = event.target; btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Analysing...';
+    var btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Scanning data...';
     try {
         var resp = await fetch('/api/insights/generate', { method: 'POST' });
         var data = await resp.json();
-        if (data.status === 'success') { showToast('Generated ' + data.count + ' new insight(s)!'); setTimeout(function() { location.reload(); }, 1000); }
-        else { showToast(data.message || 'Error', 'error'); }
-    } catch(err) { showToast('Network error', 'error'); }
-    btn.disabled = false; btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Generate Insights';
+        if (data.status === 'success') {
+            showToast('Found ' + data.count + ' new insight(s) from your data.');
+            setTimeout(function() { location.reload(); }, 1200);
+        } else {
+            showToast(data.message || 'Could not generate insights', 'error');
+        }
+    } catch(err) {
+        showToast('Connection error. Is the server running?', 'error');
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Generate New Insights';
 }
+
 async function markRead(id) {
     await fetch('/api/insights/' + id + '/read', { method: 'POST' });
     var card = document.getElementById('insight-' + id);
