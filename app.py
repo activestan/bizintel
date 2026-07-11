@@ -204,6 +204,25 @@ def seed_db():
     except Exception as e:
         return f'<h3>Error: {str(e)}</h3>'
 
+
+@app.route('/reset')
+def reset_db():
+    """Reset and re-seed the database (use after code updates)."""
+    try:
+        db.drop_all()
+        db.create_all()
+        from seed_data import seed_all
+        seed_all()
+        from analytics import compute_daily_metrics
+        from datetime import date, timedelta
+        for i in range(1, 61):
+            d = date.today() - timedelta(days=i)
+            compute_daily_metrics(d)
+        return '<h3>Database reset and re-seeded with fresh data!</h3><p><a href="/">Go to Dashboard</a></p>'
+    except Exception as e:
+        return f'<h3>Reset error: {str(e)}</h3>'
+
+
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 5000))
