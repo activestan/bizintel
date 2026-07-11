@@ -26,14 +26,6 @@ def create_app():
 
     with app.app_context():
         db.create_all()
-        if Service.query.count() == 0:
-            print('Seeding database with demo data...')
-            seed_all()
-            print('Database seeded.')
-            for i in range(1, 61):
-                d = date.today() - timedelta(days=i)
-                compute_daily_metrics(d)
-            print('Daily metrics computed.')
 
     return app
 
@@ -192,6 +184,25 @@ def read_insight(insight_id):
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
+
+
+@app.route('/seed')
+def seed_db():
+    """One-time database seeding (visit this once after deployment)."""
+    try:
+        from models import Service
+        if Service.query.count() > 0:
+            return '<h3>Database already seeded.</h3><p><a href="/">Go to Dashboard</a></p>'
+        from seed_data import seed_all
+        seed_all()
+        from analytics import compute_daily_metrics
+        from datetime import date, timedelta
+        for i in range(1, 61):
+            d = date.today() - timedelta(days=i)
+            compute_daily_metrics(d)
+        return '<h3>Database seeded successfully!</h3><p><a href="/">Go to Dashboard</a></p>'
+    except Exception as e:
+        return f'<h3>Error: {str(e)}</h3>'
 
 if __name__ == '__main__':
     import os
