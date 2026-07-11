@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Insights – BizIntel{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div><h2 class="fw-bold mb-0"><i class="bi bi-lightbulb me-2"></i>Decision Support</h2><p class="text-muted mb-0">Operational recommendations</p></div>
+    <button onclick="generateInsights()" class="btn btn-primary"><i class="bi bi-arrow-repeat me-1"></i> Generate Insights</button>
+</div>
+{% if error %}<div class="alert alert-warning">{{ error }}</div>{% endif %}
+{% if insights %}
+<div class="row g-3">
+    {% for i in insights %}
+    <div class="col-md-6">
+        <div class="card card-stat p-3 {% if not i.is_read %}border-start border-3 border-primary{% endif %}" id="insight-{{ i.id }}">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <span class="badge badge-{{ i.severity }}">{{ i.category|capitalize }}</span>
+                <div>{% if not i.is_read %}<button class="btn btn-sm btn-outline-primary me-1" onclick="markRead({{ i.id }})"><i class="bi bi-check-lg"></i></button>{% endif %}<small class="text-muted">{{ i.created_at.strftime('%b %d, %Y') }}</small></div>
+            </div>
+            <h6 class="fw-bold">{{ i.title }}</h6>
+            <p class="mb-1 text-muted small">{{ i.description }}</p>
+            {% if i.metric_value %}<small class="text-muted">{{ i.metric_name|replace('_', ' ')|title }}: {{ i.metric_value }}</small>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5"><i class="bi bi-lightbulb fs-1 text-muted"></i><p class="text-muted mt-3">No insights yet. Click Generate Insights to analyse your data.</p></div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+async function generateInsights() {
+    var btn = event.target; btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Analysing...';
+    try {
+        var resp = await fetch('/api/insights/generate', { method: 'POST' });
+        var data = await resp.json();
+        if (data.status === 'success') { showToast('Generated ' + data.count + ' new insight(s)!'); setTimeout(function() { location.reload(); }, 1000); }
+        else { showToast(data.message || 'Error', 'error'); }
+    } catch(err) { showToast('Network error', 'error'); }
+    btn.disabled = false; btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Generate Insights';
+}
+async function markRead(id) {
+    await fetch('/api/insights/' + id + '/read', { method: 'POST' });
+    var card = document.getElementById('insight-' + id);
+    card.classList.remove('border-start', 'border-3', 'border-primary');
+    card.querySelectorAll('button').forEach(function(b) { b.remove(); });
+}
+</script>
+{% endblock %}

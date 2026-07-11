@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – BizIntel{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">Dashboard</h2>
+        <p class="text-muted">Operational Overview</p>
+    </div>
+    <button onclick="location.reload()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+</div>
+
+{% if error %}<div class="alert alert-warning">{{ error }}</div>{% endif %}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card card-stat p-3">
+            <small class="text-muted">Today's Revenue</small>
+            <div class="stat-value">₦{{ '{:,.0f}'.format(kpis.today_revenue) if kpis else '0' }}</div>
+            <small class="text-muted">{{ kpis.today_transactions if kpis else 0 }} transactions</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat p-3">
+            <small class="text-muted">This Week</small>
+            <div class="stat-value">₦{{ '{:,.0f}'.format(kpis.week_revenue) if kpis else '0' }}</div>
+            <small class="text-muted">{{ kpis.week_transactions if kpis else 0 }} transactions</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat p-3">
+            <small class="text-muted">This Month</small>
+            <div class="stat-value">₦{{ '{:,.0f}'.format(kpis.month_revenue) if kpis else '0' }}</div>
+            <small class="text-muted">{{ kpis.month_unique_customers if kpis else 0 }} customers</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat p-3">
+            <small class="text-muted">Avg Transaction</small>
+            <div class="stat-value">₦{{ '{:,.0f}'.format(kpis.avg_transaction_value) if kpis else '0' }}</div>
+            <small class="text-muted">{{ kpis.resource_utilization if kpis else 0 }}% resource use</small>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-8">
+        <div class="card card-stat p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-activity me-2"></i>Revenue Trend (30 Days)</h6>
+            <div class="chart-container"><canvas id="revenueTrendChart"></canvas></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-stat p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-pie-chart me-2"></i>Revenue by Service</h6>
+            <div class="chart-container" style="height:290px;"><canvas id="servicePieChart"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card card-stat p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-clock-history me-2"></i>Transactions by Hour</h6>
+            <div class="chart-container" style="height:240px;"><canvas id="hourlyChart"></canvas></div>
+            {% if hourly and hourly.peak_hour is not none %}
+            <small class="text-muted mt-2">Peak hour: <strong>{{ '{:02d}:00'.format(hourly.peak_hour) }}</strong></small>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card card-stat p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-lightbulb me-2"></i>Recent Insights</h6>
+            {% if insights %}
+                {% for i in insights %}
+                <div class="d-flex align-items-start gap-2 mb-2 pb-2 border-bottom">
+                    <i class="bi bi-{% if i.severity == 'critical' %}exclamation-triangle text-danger{% elif i.severity == 'warning' %}exclamation-circle text-warning{% elif i.severity == 'success' %}check-circle text-success{% else %}info-circle text-primary{% endif %} fs-5 mt-1"></i>
+                    <div><small class="fw-semibold">{{ i.title }}</small></div>
+                </div>
+                {% endfor %}
+                <a href="/insights" class="btn btn-sm btn-outline-primary mt-2">View All</a>
+            {% else %}
+                <p class="text-muted">No insights yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if trend_analysis and trend_analysis.trend != 'insufficient_data' %}
+<div class="row g-3 mt-3">
+    <div class="col-12">
+        <div class="card card-stat p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Trend Analysis (90 Days)</h6>
+            <div class="row g-3">
+                <div class="col-md-3"><span class="badge {% if trend_analysis.trend == 'growth' %}bg-success{% elif trend_analysis.trend == 'decline' %}bg-danger{% else %}bg-secondary{% endif %} fs-6">{{ trend_analysis.trend|capitalize }}</span></div>
+                <div class="col-md-3"><small class="text-muted">Avg Daily Revenue</small><br><strong>₦{{ '{:,.0f}'.format(trend_analysis.avg_daily_revenue) }}</strong></div>
+                <div class="col-md-3"><small class="text-muted">Best Day</small><br><strong>{{ trend_analysis.best_day }}</strong></div>
+                <div class="col-md-3"><small class="text-muted">Worst Day</small><br><strong>{{ trend_analysis.worst_day }}</strong></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if trend %}
+new Chart(document.getElementById('revenueTrendChart'), {
+    type: 'line', data: {
+        labels: {{ trend.labels|tojson }},
+        datasets: [{ label: 'Revenue (₦)', data: {{ trend.revenue|tojson }}, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.06)', fill: true, tension: 0.3, pointRadius: 2 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: function(v) { return '₦' + (v/1000).toFixed(0) + 'k'; } } } } }
+});
+{% endif %}
+{% if service_breakdown %}
+new Chart(document.getElementById('servicePieChart'), {
+    type: 'doughnut', data: {
+        labels: {{ service_breakdown.labels|tojson }},
+        datasets: [{ data: {{ service_breakdown.revenue|tojson }}, backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16'], borderWidth: 0 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 10 }, padding: 6, usePointStyle: true } } } }
+});
+{% endif %}
+{% if hourly %}
+new Chart(document.getElementById('hourlyChart'), {
+    type: 'bar', data: { labels: {{ hourly.labels|tojson }}, datasets: [{ data: {{ hourly.counts|tojson }}, backgroundColor: '#3b82f6', borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+});
+{% endif %}
+</script>
+{% endblock %}

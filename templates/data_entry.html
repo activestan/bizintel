@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Data Entry – BizIntel{% endblock %}
+{% block content %}
+<h2 class="fw-bold mb-4"><i class="bi bi-plus-circle me-2"></i>Data Entry</h2>
+{% if error %}<div class="alert alert-warning">{{ error }}</div>{% endif %}
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card card-stat p-3 mb-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-cart-plus me-1"></i>New Transaction</h6>
+            <form id="txForm" onsubmit="submitTransaction(event)">
+                <div class="mb-2">
+                    <label class="form-label small">Service *</label>
+                    <select class="form-select form-select-sm" id="service_id" required>
+                        <option value="">Select service...</option>
+                        {% for s in services %}
+                        <option value="{{ s.id }}" data-price="{{ s.unit_price }}">{{ s.name }} ({{ s.category }}) — ₦{{ '{:,.0f}'.format(s.unit_price) }}/{{ s.unit_type|replace('_', ' ') }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6"><label class="form-label small">Quantity</label><input type="number" class="form-control form-control-sm" id="quantity" value="1" min="0.1" step="0.1" required></div>
+                    <div class="col-6"><label class="form-label small">Payment</label><select class="form-select form-select-sm" id="payment_method"><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="POS">POS</option></select></div>
+                </div>
+                <div class="mb-2"><label class="form-label small">Customer</label><select class="form-select form-select-sm" id="customer_id"><option value="">Walk-in</option>{% for c in customers %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+                <div class="mb-2"><label class="form-label small">Staff</label><select class="form-select form-select-sm" id="staff_name"><option value="">Select...</option><option>Sarah</option><option>John</option><option>Hassan</option><option>Maryam</option><option>Peter</option></select></div>
+                <div class="mb-3"><label class="form-label small">Total</label><input type="text" class="form-control form-control-sm" id="total_preview" readonly></div>
+                <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-check-lg me-1"></i>Record Transaction</button>
+            </form>
+        </div>
+        <div class="card card-stat p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-person-plus me-1"></i>Add Customer</h6>
+            <form id="custForm" onsubmit="submitCustomer(event)">
+                <div class="mb-2"><input type="text" class="form-control form-control-sm" id="cust_name" placeholder="Customer name *" required></div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6"><input type="text" class="form-control form-control-sm" id="cust_phone" placeholder="Phone"></div>
+                    <div class="col-6"><select class="form-select form-select-sm" id="cust_type"><option value="walk-in">Walk-in</option><option value="registered">Registered</option><option value="corporate">Corporate</option></select></div>
+                </div>
+                <button type="submit" class="btn btn-outline-secondary btn-sm w-100"><i class="bi bi-person-plus me-1"></i>Add Customer</button>
+            </form>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card card-stat p-3">
+            <h6 class="fw-bold mb-3"><i class="bi bi-clock-history me-1"></i>Recent Transactions</h6>
+            {% if recent_transactions %}
+            <div style="max-height:520px;overflow-y:auto;">
+                <table class="table table-sm table-hover">
+                    <thead class="table-light"><tr><th>Time</th><th>Service</th><th>Customer</th><th>Qty</th><th>Amount</th><th>Staff</th></tr></thead>
+                    <tbody>{% for t in recent_transactions %}
+                    <tr><td><small>{{ t.created_at.strftime('%d/%m %H:%M') }}</small></td><td><small>{{ t.service.name if t.service else '—' }}</small></td><td><small>{{ t.customer.name if t.customer else 'Walk-in' }}</small></td><td>{{ t.quantity }}</td><td class="fw-semibold">₦{{ '{:,.0f}'.format(t.total_amount) }}</td><td><small>{{ t.staff_name or '—' }}</small></td></tr>
+                    {% endfor %}</tbody>
+                </table>
+            </div>
+            {% else %}<p class="text-muted text-center py-3">No transactions yet.</p>{% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('service_id').addEventListener('change', updateTotal);
+document.getElementById('quantity').addEventListener('input', updateTotal);
+function updateTotal() {
+    var sel = document.getElementById('service_id');
+    var qty = parseFloat(document.getElementById('quantity').value) || 1;
+    var price = sel.selectedOptions[0] ? sel.selectedOptions[0].dataset.price : null;
+    document.getElementById('total_preview').value = price ? '₦' + (parseFloat(price) * qty).toLocaleString('en-NG', {minimumFractionDigits: 2}) : '';
+}
+async function submitTransaction(e) {
+    e.preventDefault();
+    var fd = new FormData();
+    fd.append('service_id', document.getElementById('service_id').value);
+    fd.append('customer_id', document.getElementById('customer_id').value);
+    fd.append('quantity', document.getElementById('quantity').value);
+    fd.append('payment_method', document.getElementById('payment_method').value);
+    fd.append('staff_name', document.getElementById('staff_name').value);
+    var resp = await fetch('/api/transaction', { method: 'POST', body: fd });
+    var data = await resp.json();
+    if (data.status === 'success') { showToast(data.message); document.getElementById('txForm').reset(); document.getElementById('quantity').value = '1'; setTimeout(function() { location.reload(); }, 1500); }
+    else { showToast(data.message, 'error'); }
+}
+async function submitCustomer(e) {
+    e.preventDefault();
+    var fd = new FormData();
+    fd.append('name', document.getElementById('cust_name').value);
+    fd.append('phone', document.getElementById('cust_phone').value);
+    fd.append('customer_type', document.getElementById('cust_type').value);
+    var resp = await fetch('/api/customer', { method: 'POST', body: fd });
+    var data = await resp.json();
+    if (data.status === 'success') { showToast(data.message); document.getElementById('custForm').reset(); setTimeout(function() { location.reload(); }, 1000); }
+    else { showToast(data.message, 'error'); }
+}
+</script>
+{% endblock %}
